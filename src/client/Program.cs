@@ -77,8 +77,14 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 			if (await WaitForInputAsync(cancellationToken) is false)
 				return;
 
-			ConsoleKeyInfo key = Console.ReadKey(true);
-			await HandleInputAsync(key, cancellationToken);
+			while (Console.KeyAvailable)
+			{
+				// Note(Nightowl):
+				// This seems to work properly and it doesn't starve the prompt drawing even if
+				// I hold down a single key, I'm hoping this isn't just a thing for me though;
+				ConsoleKeyInfo key = Console.ReadKey(true);
+				await HandleInputAsync(key, cancellationToken);
+			}
 			await RedrawPromptAsync(cancellationToken);
 		}
 	}
@@ -87,6 +93,15 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 	#region Methods
 	private Task EnsureStateAsync(CancellationToken cancellationToken)
 	{
+		// Note(Nightowl): Skip everything before actual input, prevents accidentally sending a command without knowing;
+		while (Console.KeyAvailable)
+		{
+			if (cancellationToken.IsCancellationRequested)
+				return Task.CompletedTask;
+
+			_ = Console.ReadKey(true);
+		}
+
 		// Note(Nightowl): Initial printing shouldn't show the cursor;
 		Console.CursorVisible = false;
 
