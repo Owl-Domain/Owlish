@@ -57,7 +57,6 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 	private List<char> InputBuffer { get; } = [];
 	private int InputIndex { get; set; } = 0;
 	private Position PromptStart { get; set; }
-	private Position CaretPosition { get; set; }
 	#endregion
 
 	#region Lifetime methods
@@ -107,11 +106,15 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 		for (int i = 0; i < InputIndex; i++)
 			Console.Write(InputBuffer[i]);
 
-		CaretPosition = Position.GetCurrent();
+		Position caret = Position.GetCurrent();
 
 		for (int i = InputIndex; i < InputBuffer.Count; i++)
 			Console.Write(InputBuffer[i]);
 
+		// Note(Nightowl): VT100 code for clearing from the caret position until the end of the display;
+		Console.Write("\e[0J");
+
+		caret.Set();
 		Console.CursorVisible = true;
 
 		return Task.CompletedTask;
@@ -136,11 +139,11 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 			return;
 		}
 
-		if (char.IsControl(key.KeyChar))
+		if (HandleInputEdit(key))
 			return;
 
-		InputBuffer.Insert(InputIndex, key.KeyChar);
-		InputIndex++;
+		if (HandleInputMovement(key))
+			return;
 	}
 	private async Task ExecuteAsync(string input, CancellationToken cancellationToken)
 	{
@@ -180,6 +183,73 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 				Console.Error.WriteLine($"Processes failed with code: {process.ExitCode}");
 			}
 		}
+	}
+	#endregion
+
+	#region Input helpers
+	private bool HandleInputMovement(ConsoleKeyInfo key)
+	{
+		if (key.Key is ConsoleKey.Home)
+		{
+			InputIndex = 0;
+			return true;
+		}
+
+		if (key.Key is ConsoleKey.End)
+		{
+			InputIndex = InputBuffer.Count;
+			return true;
+		}
+
+		if (key.Key is ConsoleKey.LeftArrow)
+		{
+			InputIndex = Math.Max(0, InputIndex - 1);
+			return true;
+		}
+
+		if (key.Key is ConsoleKey.RightArrow)
+		{
+			InputIndex = Math.Min(InputIndex + 1, InputBuffer.Count);
+			return true;
+		}
+
+		return false;
+	}
+	private bool HandleInputEdit(ConsoleKeyInfo key)
+	{
+		if (HandleInputSpecialEdit(key))
+			return true;
+
+		if (char.IsControl(key.KeyChar))
+			return false;
+
+		InputBuffer.Insert(InputIndex, key.KeyChar);
+		InputIndex++;
+
+		return true;
+	}
+	private bool HandleInputSpecialEdit(ConsoleKeyInfo key)
+	{
+		if (key.Key is ConsoleKey.Backspace)
+		{
+			if (InputIndex > 0)
+			{
+				InputIndex--;
+				InputBuffer.RemoveAt(InputIndex);
+			}
+
+			return true;
+		}
+
+		if (key.Key is ConsoleKey.Delete)
+		{
+			if (InputIndex < InputBuffer.Count)
+				InputBuffer.RemoveAt(InputIndex);
+
+			return true;
+		}
+
+		return false;
 	}
 	#endregion
 
