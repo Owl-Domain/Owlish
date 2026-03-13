@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -10,7 +11,7 @@ public static class Program
 	{
 		HostApplicationBuilderSettings settings = new()
 		{
-			ApplicationName = "owlish",
+			ApplicationName = "Owlish",
 			DisableDefaults = true,
 			ContentRootPath = AppContext.BaseDirectory,
 #if DEBUG
@@ -22,23 +23,98 @@ public static class Program
 		builder.Services.AddHostedService<OwlishWorker>();
 
 		IHost host = builder.Build();
-		try
-		{
-			await host.StartAsync();
-		}
-		finally
-		{
-			await host.StopAsync();
-		}
+
+		await host.StartAsync();
+		await host.WaitForShutdownAsync();
 	}
 	#endregion
 }
 
-class OwlishWorker : BackgroundService
+class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configuration) : BackgroundService
 {
-	protected override Task ExecuteAsync(CancellationToken stoppingToken)
+	#region Nested types
+	private readonly record struct Position(int Left, int Top)
 	{
-		Console.WriteLine("Welcome to owlish.");
+		public static Position GetCurrent()
+		{
+			(int left, int top) = Console.GetCursorPosition();
+			return new(left, top);
+		}
+
+		public void Set() => Console.SetCursorPosition(Left, Top);
+	}
+	#endregion
+
+	#region Properties
+	private Position PromptStart { get; set; }
+	#endregion
+
+	#region Lifetime methods
+	protected override async Task ExecuteAsync(CancellationToken cancellationToken)
+	{
+		string? appName = configuration[nameof(HostApplicationBuilderSettings.ApplicationName)];
+		Console.WriteLine($"Welcome to {appName ?? "Owlish"}.");
+
+		await LoopAsync(cancellationToken);
+	}
+	private async Task LoopAsync(CancellationToken cancellationToken)
+	{
+		await DrawPromptAsync(cancellationToken);
+		while (cancellationToken.IsCancellationRequested is false)
+		{
+			if (await WaitForInputAsync(cancellationToken) is false)
+				return;
+
+			ConsoleKeyInfo key = Console.ReadKey(true);
+			await HandleInputAsync(key, cancellationToken);
+			await RedrawPromptAsync(cancellationToken);
+		}
+	}
+	#endregion
+
+	#region Methods
+	private Task DrawPromptAsync(CancellationToken cancellationToken)
+	{
+		PromptStart = Position.GetCurrent();
+		Console.Write($"{DateTime.Now} > ");
+
 		return Task.CompletedTask;
 	}
+	private async Task HandleInputAsync(ConsoleKeyInfo key, CancellationToken cancellationToken)
+	{
+		if (key.Modifiers is ConsoleModifiers.Control && key.Key is ConsoleKey.C)
+		{
+			lifetime.StopApplication();
+			return;
+		}
+	}
+	#endregion
+
+	#region Helpers
+	private async Task RedrawPromptAsync(CancellationToken cancellationToken)
+	{
+		Console.CursorVisible = false;
+		try
+		{
+			PromptStart.Set();
+			await DrawPromptAsync(cancellationToken);
+		}
+		finally
+		{
+			Console.CursorVisible = true;
+		}
+	}
+	private async Task<bool> WaitForInputAsync(CancellationToken cancellationToken)
+	{
+		while (Console.KeyAvailable is false)
+		{
+			if (cancellationToken.IsCancellationRequested)
+				return true;
+
+			await Task.Delay(50);
+		}
+
+		return false;
+	}
+	#endregion
 }
