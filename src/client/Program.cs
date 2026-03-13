@@ -60,6 +60,8 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 	#region Lifetime methods
 	protected override async Task ExecuteAsync(CancellationToken cancellationToken)
 	{
+		await EnsureStateAsync(cancellationToken);
+
 		string? appName = configuration[nameof(HostApplicationBuilderSettings.ApplicationName)];
 		Console.WriteLine($"Welcome to {appName ?? "Owlish"}.");
 
@@ -67,7 +69,6 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 	}
 	private async Task LoopAsync(CancellationToken cancellationToken)
 	{
-		await EnsureStateAsync(cancellationToken);
 		await DrawPromptAsync(cancellationToken);
 		while (cancellationToken.IsCancellationRequested is false)
 		{
@@ -87,7 +88,8 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 		if (Position.GetCurrent().IsStartOfLine is false)
 			Console.WriteLine();
 
-		Console.CursorVisible = true;
+		// Note(Nightowl): Initial printing shouldn't show the cursor;
+		Console.CursorVisible = false;
 
 		return Task.CompletedTask;
 	}
@@ -95,6 +97,8 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 	{
 		PromptStart = Position.GetCurrent();
 		Console.Write($"{DateTime.Now} > ");
+
+		Console.CursorVisible = true;
 
 		return Task.CompletedTask;
 	}
@@ -127,12 +131,12 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 		while (Console.KeyAvailable is false)
 		{
 			if (cancellationToken.IsCancellationRequested)
-				return true;
+				return false;
 
 			await Task.Delay(50);
 		}
 
-		return false;
+		return true;
 	}
 	#endregion
 }
