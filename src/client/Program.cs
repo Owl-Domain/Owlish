@@ -35,13 +35,21 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 	#region Nested types
 	private readonly record struct Position(int Left, int Top)
 	{
+		#region Properties
+		public bool IsStartOfLine => Left is 0;
+		#endregion
+
+		#region Functions
 		public static Position GetCurrent()
 		{
 			(int left, int top) = Console.GetCursorPosition();
 			return new(left, top);
 		}
+		#endregion
 
+		#region Methods
 		public void Set() => Console.SetCursorPosition(Left, Top);
+		#endregion
 	}
 	#endregion
 
@@ -59,6 +67,7 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 	}
 	private async Task LoopAsync(CancellationToken cancellationToken)
 	{
+		await EnsureStateAsync(cancellationToken);
 		await DrawPromptAsync(cancellationToken);
 		while (cancellationToken.IsCancellationRequested is false)
 		{
@@ -73,6 +82,15 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 	#endregion
 
 	#region Methods
+	private Task EnsureStateAsync(CancellationToken cancellationToken)
+	{
+		if (Position.GetCurrent().IsStartOfLine is false)
+			Console.WriteLine();
+
+		Console.CursorVisible = true;
+
+		return Task.CompletedTask;
+	}
 	private Task DrawPromptAsync(CancellationToken cancellationToken)
 	{
 		PromptStart = Position.GetCurrent();
