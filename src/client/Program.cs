@@ -54,7 +54,10 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 	#endregion
 
 	#region Properties
+	private List<char> InputBuffer { get; } = [];
+	private int InputIndex { get; set; } = 0;
 	private Position PromptStart { get; set; }
+	private Position CaretPosition { get; set; }
 	#endregion
 
 	#region Lifetime methods
@@ -85,11 +88,14 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 	#region Methods
 	private Task EnsureStateAsync(CancellationToken cancellationToken)
 	{
+		// Note(Nightowl): Initial printing shouldn't show the cursor;
+		Console.CursorVisible = false;
+
 		if (Position.GetCurrent().IsStartOfLine is false)
 			Console.WriteLine();
 
-		// Note(Nightowl): Initial printing shouldn't show the cursor;
-		Console.CursorVisible = false;
+		InputBuffer.Clear();
+		InputIndex = 0;
 
 		return Task.CompletedTask;
 	}
@@ -97,6 +103,14 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 	{
 		PromptStart = Position.GetCurrent();
 		Console.Write($"{DateTime.Now} > ");
+
+		for (int i = 0; i < InputIndex; i++)
+			Console.Write(InputBuffer[i]);
+
+		CaretPosition = Position.GetCurrent();
+
+		for (int i = InputIndex; i < InputBuffer.Count; i++)
+			Console.Write(InputBuffer[i]);
 
 		Console.CursorVisible = true;
 
@@ -108,6 +122,63 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 		{
 			lifetime.StopApplication();
 			return;
+		}
+
+		if (key.Key is ConsoleKey.Enter)
+		{
+			// ensure potential output starts on a new line.
+			Console.WriteLine();
+
+			string input = new(InputBuffer.ToArray());
+			await ExecuteAsync(input, cancellationToken);
+			await EnsureStateAsync(cancellationToken);
+
+			return;
+		}
+
+		if (char.IsControl(key.KeyChar))
+			return;
+
+		InputBuffer.Insert(InputIndex, key.KeyChar);
+		InputIndex++;
+	}
+	private async Task ExecuteAsync(string input, CancellationToken cancellationToken)
+	{
+		if (string.IsNullOrWhiteSpace(input))
+			return;
+
+		string[] parts = input.Split();
+		string command = parts[0]; // One part is always guaranteed.
+		string[] args = parts.Skip(1).ToArray();
+
+		ProcessStartInfo startInfo = new(command, args)
+		{
+			// Note(Nightowl): Pretty sure this happens anyway but let's be explicit about it;
+			WorkingDirectory = Environment.CurrentDirectory
+		};
+
+		Process? process = null;
+		try
+		{
+			process = Process.Start(startInfo);
+			if (process is null)
+			{
+				// Todo(Nightowl): Fail somehow?;
+				return;
+			}
+
+			await process.WaitForExitAsync(cancellationToken);
+		}
+		catch (Exception exception)
+		{
+			Console.Error.WriteLine(exception.Message);
+		}
+		finally
+		{
+			if (process?.ExitCode is not 0 and not null)
+			{
+				Console.Error.WriteLine($"Processes failed with code: {process.ExitCode}");
+			}
 		}
 	}
 	#endregion
