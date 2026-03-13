@@ -83,7 +83,14 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 				// This seems to work properly and it doesn't starve the prompt drawing even if
 				// I hold down a single key, I'm hoping this isn't just a thing for me though;
 				ConsoleKeyInfo key = Console.ReadKey(true);
-				await HandleInputAsync(key, cancellationToken);
+				string? input = await HandleInputAsync(key, cancellationToken);
+
+				if (input is not null)
+				{
+					await ExecuteAsync(input, cancellationToken);
+					await EnsureStateAsync(cancellationToken);
+					break;
+				}
 			}
 			await RedrawPromptAsync(cancellationToken);
 		}
@@ -134,12 +141,12 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 
 		return Task.CompletedTask;
 	}
-	private async Task HandleInputAsync(ConsoleKeyInfo key, CancellationToken cancellationToken)
+	private async Task<string?> HandleInputAsync(ConsoleKeyInfo key, CancellationToken cancellationToken)
 	{
 		if (key.Modifiers is ConsoleModifiers.Control && key.Key is ConsoleKey.C)
 		{
 			lifetime.StopApplication();
-			return;
+			return null;
 		}
 
 		if (key.Key is ConsoleKey.Enter)
@@ -148,17 +155,11 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 			Console.WriteLine();
 
 			string input = new(InputBuffer.ToArray());
-			await ExecuteAsync(input, cancellationToken);
-			await EnsureStateAsync(cancellationToken);
-
-			return;
+			return input;
 		}
 
-		if (HandleInputEdit(key))
-			return;
-
-		if (HandleInputMovement(key))
-			return;
+		_ = HandleInputEdit(key) || HandleInputMovement(key);
+		return null;
 	}
 	private async Task ExecuteAsync(string input, CancellationToken cancellationToken)
 	{
