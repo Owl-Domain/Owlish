@@ -3,7 +3,7 @@
 <!-- Project -->
 <PropertyGroup Label="project">
 	<OutputType>Exe</OutputType>
-	<TargetFrameworks>net10.0</TargetFrameworks>
+	<TargetFramework>net10.0</TargetFramework>
 	<LangVersion>14</LangVersion>
 	<Nullable>enable</Nullable>
 
