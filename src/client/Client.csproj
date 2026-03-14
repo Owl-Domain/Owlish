@@ -7,7 +7,7 @@
 	<LangVersion>14</LangVersion>
 	<Nullable>enable</Nullable>
 
-	<AssemblyName>OwlDomain.Owlish</AssemblyName>
+	<AssemblyName>owlish</AssemblyName>
 	<RootNamespace>OwlDomain.Owlish</RootNamespace>
 	<Version>0.0.0</Version>
 
