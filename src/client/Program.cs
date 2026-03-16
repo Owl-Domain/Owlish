@@ -2,6 +2,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
+using OwlDomain.Owlish.Engine.Input;
+
 namespace OwlDomain.Owlish;
 
 public static class Program
@@ -54,8 +56,7 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 	#endregion
 
 	#region Properties
-	private List<char> InputBuffer { get; } = [];
-	private int InputIndex { get; set; } = 0;
+	private TextInput Input { get; } = new();
 	private Position PromptStart { get; set; }
 	#endregion
 
@@ -77,22 +78,46 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 			if (await WaitForInputAsync(cancellationToken) is false)
 				return;
 
+			bool needsRedraw = false;
+
 			while (Console.KeyAvailable)
 			{
 				// Note(Nightowl):
 				// This seems to work properly and it doesn't starve the prompt drawing even if
 				// I hold down a single key, I'm hoping this isn't just a thing for me though;
 				ConsoleKeyInfo key = Console.ReadKey(true);
-				string? input = await HandleInputAsync(key, cancellationToken);
+				TextInputResult result = Input.Handle(key);
 
-				if (input is not null)
+				if (result is TextInputResult.Complete)
 				{
-					await ExecuteAsync(input, cancellationToken);
+					/// Ensure prompt and input is fully drawn before we get potential output.
+					await RedrawPromptAsync(cancellationToken);
+
+					// ensure potential output starts on a new line.
+					Console.WriteLine();
+					string input = Input.ToString();
+
 					await EnsureStateAsync(cancellationToken);
+
+					if (string.IsNullOrWhiteSpace(input) is false)
+						await ExecuteAsync(input, cancellationToken);
+
+					needsRedraw = true;
 					break;
 				}
+
+				if (result is TextInputResult.Exit)
+				{
+					lifetime.StopApplication();
+					return;
+				}
+
+				if (result is not TextInputResult.None)
+					needsRedraw = true;
 			}
-			await RedrawPromptAsync(cancellationToken);
+
+			if (needsRedraw)
+				await RedrawPromptAsync(cancellationToken);
 		}
 	}
 	#endregion
@@ -109,57 +134,41 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 			_ = Console.ReadKey(true);
 		}
 
-		// Note(Nightowl): Initial printing shouldn't show the cursor;
-		Console.CursorVisible = false;
-
 		if (Position.GetCurrent().IsStartOfLine is false)
 			Console.WriteLine();
 
-		InputBuffer.Clear();
-		InputIndex = 0;
+		Input.Reset();
 
 		return Task.CompletedTask;
 	}
 	private Task DrawPromptAsync(CancellationToken cancellationToken)
 	{
-		PromptStart = Position.GetCurrent();
-		Console.Write($"{DateTime.Now} > ");
+		Console.CursorVisible = false;
 
-		for (int i = 0; i < InputIndex; i++)
-			Console.Write(InputBuffer[i]);
+		try
+		{
+			PromptStart = Position.GetCurrent();
+			Console.Write($"{DateTime.Now} > ");
 
-		Position caret = Position.GetCurrent();
+			for (int i = 0; i < Input.Position; i++)
+				Console.Write(Input.Characters[i]);
 
-		for (int i = InputIndex; i < InputBuffer.Count; i++)
-			Console.Write(InputBuffer[i]);
+			Position caret = Position.GetCurrent();
 
-		// Note(Nightowl): VT100 code for clearing from the caret position until the end of the display;
-		Console.Write("\e[0J");
+			for (int i = Input.Position; i < Input.Characters.Count; i++)
+				Console.Write(Input.Characters[i]);
 
-		caret.Set();
-		Console.CursorVisible = true;
+			// Note(Nightowl): VT100 code for clearing from the caret position until the end of the display;
+			Console.Write("\e[0J");
+
+			caret.Set();
+		}
+		finally
+		{
+			Console.CursorVisible = true;
+		}
 
 		return Task.CompletedTask;
-	}
-	private async Task<string?> HandleInputAsync(ConsoleKeyInfo key, CancellationToken cancellationToken)
-	{
-		if (key.Modifiers is ConsoleModifiers.Control && key.Key is ConsoleKey.C)
-		{
-			lifetime.StopApplication();
-			return null;
-		}
-
-		if (key.Key is ConsoleKey.Enter)
-		{
-			// ensure potential output starts on a new line.
-			Console.WriteLine();
-
-			string input = new(InputBuffer.ToArray());
-			return input;
-		}
-
-		_ = HandleInputEdit(key) || HandleInputMovement(key);
-		return null;
 	}
 	private async Task ExecuteAsync(string input, CancellationToken cancellationToken)
 	{
@@ -199,73 +208,6 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 				Console.Error.WriteLine($"Processes failed with code: {process.ExitCode}");
 			}
 		}
-	}
-	#endregion
-
-	#region Input helpers
-	private bool HandleInputMovement(ConsoleKeyInfo key)
-	{
-		if (key.Key is ConsoleKey.Home)
-		{
-			InputIndex = 0;
-			return true;
-		}
-
-		if (key.Key is ConsoleKey.End)
-		{
-			InputIndex = InputBuffer.Count;
-			return true;
-		}
-
-		if (key.Key is ConsoleKey.LeftArrow)
-		{
-			InputIndex = Math.Max(0, InputIndex - 1);
-			return true;
-		}
-
-		if (key.Key is ConsoleKey.RightArrow)
-		{
-			InputIndex = Math.Min(InputIndex + 1, InputBuffer.Count);
-			return true;
-		}
-
-		return false;
-	}
-	private bool HandleInputEdit(ConsoleKeyInfo key)
-	{
-		if (HandleInputSpecialEdit(key))
-			return true;
-
-		if (char.IsControl(key.KeyChar))
-			return false;
-
-		InputBuffer.Insert(InputIndex, key.KeyChar);
-		InputIndex++;
-
-		return true;
-	}
-	private bool HandleInputSpecialEdit(ConsoleKeyInfo key)
-	{
-		if (key.Key is ConsoleKey.Backspace)
-		{
-			if (InputIndex > 0)
-			{
-				InputIndex--;
-				InputBuffer.RemoveAt(InputIndex);
-			}
-
-			return true;
-		}
-
-		if (key.Key is ConsoleKey.Delete)
-		{
-			if (InputIndex < InputBuffer.Count)
-				InputBuffer.RemoveAt(InputIndex);
-
-			return true;
-		}
-
-		return false;
 	}
 	#endregion
 
