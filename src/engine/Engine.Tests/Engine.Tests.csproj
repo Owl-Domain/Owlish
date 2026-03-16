@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<!-- Project -->
+	<PropertyGroup Label="project">
+		<TargetFrameworks>net10.0</TargetFrameworks>
+		<LangVersion>14</LangVersion>
+		<Nullable>enable</Nullable>
+
+		<AssemblyName>OwlDomain.Owlish.Engine.Tests</AssemblyName>
+		<RootNamespace>OwlDomain.Owlish.Engine.Tests</RootNamespace>
+	</PropertyGroup>
+
+	<!-- Project references -->
+	<ItemGroup Label="projects">
+		<ProjectReference Include="../Engine/Engine.csproj" />
+	</ItemGroup>
+
+	<!-- Package references -->
+	<ItemGroup Label="packages">
+		<PackageReference Include="MSTest" Version="4.0.1" />
+	</ItemGroup>
+
+</Project>

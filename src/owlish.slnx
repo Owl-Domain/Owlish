@@ -3,6 +3,7 @@
     <Project Path="client/Client.csproj" />
   </Folder>
   <Folder Name="/engine/">
+    <Project Path="engine/Engine.Tests/Engine.Tests.csproj" />
     <Project Path="engine/Engine/Engine.csproj" />
   </Folder>
 </Solution>
