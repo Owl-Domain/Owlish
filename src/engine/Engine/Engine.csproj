@@ -1,17 +1,16 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 <!-- Project -->
 <PropertyGroup Label="project">
-	<OutputType>Exe</OutputType>
-	<TargetFramework>net10.0</TargetFramework>
+	<TargetFrameworks>net10.0</TargetFrameworks>
 	<LangVersion>14</LangVersion>
 	<Nullable>enable</Nullable>
 
-	<AssemblyName>owlish</AssemblyName>
-	<RootNamespace>OwlDomain.Owlish</RootNamespace>
+	<AssemblyName>OwlDomain.Owlish.Engine</AssemblyName>
+	<RootNamespace>OwlDomain.Owlish.Engine</RootNamespace>
 	<Version>0.0.0</Version>
 
-	<GenerateDocumentationFile>false</GenerateDocumentationFile>
+	<GenerateDocumentationFile>true</GenerateDocumentationFile>
 	<Deterministic>true</Deterministic>
 
 	<EnableNETAnalyzers>true</EnableNETAnalyzers>
@@ -20,11 +19,6 @@
 	<IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
 	<IsTrimmable Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net6.0'))">true</IsTrimmable>
 </PropertyGroup>
-
-	<!-- Project references -->
-	<ItemGroup Label="projects">
-		<ProjectReference Include="../engine/Engine/Engine.csproj" />
-	</ItemGroup>
 
 	<!-- Package references -->
 	<ItemGroup Label="packages">

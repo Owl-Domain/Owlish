@@ -2,4 +2,7 @@
   <Folder Name="/client/">
     <Project Path="client/Client.csproj" />
   </Folder>
+  <Folder Name="/engine/">
+    <Project Path="engine/Engine/Engine.csproj" />
+  </Folder>
 </Solution>
