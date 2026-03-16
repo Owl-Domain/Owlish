@@ -43,6 +43,17 @@ public interface ITextInput
 
 	/// <summary>Checks whether the text input is empty.</summary>
 	bool IsEmpty { get; }
+
+	/// <summary>The length of the text input.</summary>
+	int Length { get; }
+	#endregion
+
+	#region Indexers
+	/// <summary>Gets the character at the given <paramref name="index"/> of the input.</summary>
+	/// <param name="index">The index to get the character at.</param>
+	/// <returns>The character at the given <paramref name="index"/>.</returns>
+	/// <exception cref="ArgumentOutOfRangeException">Thrown if the given <paramref name="index"/> points outside of the allowed input range.</exception>
+	char this[int index] { get; }
 	#endregion
 
 	#region Methods

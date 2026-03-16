@@ -24,6 +24,14 @@ public class TextInput : ITextInput
 
 	/// <inheritdoc/>
 	public bool IsEmpty => _characters.Count is 0;
+
+	/// <inheritdoc/>
+	public int Length => _characters.Count;
+	#endregion
+
+	#region Indexers
+	/// <inheritdoc/>
+	public char this[int index] => _characters[index];
 	#endregion
 
 	#region Methods

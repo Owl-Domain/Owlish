@@ -151,12 +151,12 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 			Console.Write($"{DateTime.Now} > ");
 
 			for (int i = 0; i < Input.Position; i++)
-				Console.Write(Input.Characters[i]);
+				Console.Write(Input[i]);
 
 			Position caret = Position.GetCurrent();
 
-			for (int i = Input.Position; i < Input.Characters.Count; i++)
-				Console.Write(Input.Characters[i]);
+			for (int i = Input.Position; i < Input.Length; i++)
+				Console.Write(Input[i]);
 
 			// Note(Nightowl): VT100 code for clearing from the caret position until the end of the display;
 			Console.Write("\e[0J");
