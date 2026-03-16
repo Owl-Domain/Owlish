@@ -73,6 +73,16 @@ public interface ITextInput
 	/// <summary>Adds a new <paramref name="character"/> at the current position.</summary>
 	/// <param name="character">The character to add.</param>
 	void Add(char character);
+
+	/// <summary>Deletes one character before the caret.</summary>
+	/// <returns><see langword="true"/> if the character was deleted and the caret was moved, <see langword="false"/> if there was nothing to delete.</returns>
+	/// <remarks>This will move the caret one character to the left.</remarks>
+	bool DeleteBefore();
+
+	/// <summary>Deletes one character after the caret.</summary>
+	/// <returns><see langword="true"/> if the character was deleted and the caret was moved, <see langword="false"/> if there was nothing to delete.</returns>
+	/// <remarks>This will keep the caret in its current position.</remarks>
+	bool DeleteAfter();
 	#endregion
 
 	#region Movement methods
@@ -91,15 +101,5 @@ public interface ITextInput
 	/// <summary>Moves the caret to the end.</summary>
 	/// <returns><see langword="true"/> if the caret was moved, <see langword="false"/> if it was already at the end.</returns>
 	bool MoveToEnd();
-
-	/// <summary>Deletes one character before the caret.</summary>
-	/// <returns><see langword="true"/> if the character was deleted and the caret was moved, <see langword="false"/> if there was nothing to delete.</returns>
-	/// <remarks>This will move the caret one character to the left.</remarks>
-	bool DeleteBefore();
-
-	/// <summary>Deletes one character after the caret.</summary>
-	/// <returns><see langword="true"/> if the character was deleted and the caret was moved, <see langword="false"/> if there was nothing to delete.</returns>
-	/// <remarks>This will keep the caret in its current position.</remarks>
-	bool DeleteAfter();
 	#endregion
 }

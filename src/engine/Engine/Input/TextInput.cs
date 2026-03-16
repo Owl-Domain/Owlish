@@ -97,6 +97,29 @@ public class TextInput : ITextInput
 		_characters.Insert(Position, character);
 		Position++;
 	}
+
+	/// <inheritdoc/>
+	public bool DeleteBefore()
+	{
+		if (IsAtStart)
+			return false;
+
+		Debug.Assert(Position > 0);
+		_characters.RemoveAt(Position - 1);
+		Position--;
+
+		return true;
+	}
+
+	/// <inheritdoc/>
+	public bool DeleteAfter()
+	{
+		if (IsAtEnd)
+			return false;
+
+		_characters.RemoveAt(Position);
+		return true;
+	}
 	#endregion
 
 	#region Movement methods
@@ -137,29 +160,6 @@ public class TextInput : ITextInput
 			return false;
 
 		Position = Characters.Count;
-		return true;
-	}
-
-	/// <inheritdoc/>
-	public bool DeleteBefore()
-	{
-		if (IsAtStart)
-			return false;
-
-		Debug.Assert(Position > 0);
-		_characters.RemoveAt(Position - 1);
-		Position--;
-
-		return true;
-	}
-
-	/// <inheritdoc/>
-	public bool DeleteAfter()
-	{
-		if (IsAtEnd)
-			return false;
-
-		_characters.RemoveAt(Position);
 		return true;
 	}
 	#endregion
