@@ -16,9 +16,14 @@ public class TextInput : ITextInput
 	/// <inheritdoc/>
 	public int Position { get; private set; }
 
-	private bool IsAtStart => Position <= 0;
-	private bool IsAtEnd => Position >= Characters.Count;
-	private bool IsEmpty => _characters.Count is 0;
+	/// <inheritdoc/>
+	public bool IsAtStart => Position <= 0;
+
+	/// <inheritdoc/>
+	public bool IsAtEnd => Position >= Characters.Count;
+
+	/// <inheritdoc/>
+	public bool IsEmpty => _characters.Count is 0;
 	#endregion
 
 	#region Methods
@@ -62,9 +67,7 @@ public class TextInput : ITextInput
 		if (char.IsControl(key.KeyChar))
 			return TextInputResult.None;
 
-		_characters.Insert(Position, key.KeyChar);
-		Position++;
-
+		Add(key.KeyChar);
 		return TextInputResult.TextChanged;
 	}
 
@@ -79,8 +82,18 @@ public class TextInput : ITextInput
 	public override string ToString() => new(_characters.ToArray());
 	#endregion
 
+	#region Edit methods
+	/// <inheritdoc/>
+	public void Add(char character)
+	{
+		_characters.Insert(Position, character);
+		Position++;
+	}
+	#endregion
+
 	#region Movement methods
-	private bool MoveLeft()
+	/// <inheritdoc/>
+	public bool MoveLeft()
 	{
 		if (IsAtStart)
 			return false;
@@ -88,15 +101,9 @@ public class TextInput : ITextInput
 		Position--;
 		return true;
 	}
-	private bool MoveToStart()
-	{
-		if (IsAtStart)
-			return false;
 
-		Position = 0;
-		return true;
-	}
-	private bool MoveRight()
+	/// <inheritdoc/>
+	public bool MoveRight()
 	{
 		if (IsAtEnd)
 			return false;
@@ -104,7 +111,19 @@ public class TextInput : ITextInput
 		Position++;
 		return true;
 	}
-	private bool MoveToEnd()
+
+	/// <inheritdoc/>
+	public bool MoveToStart()
+	{
+		if (IsAtStart)
+			return false;
+
+		Position = 0;
+		return true;
+	}
+
+	/// <inheritdoc/>
+	public bool MoveToEnd()
 	{
 		if (IsAtEnd)
 			return false;
@@ -112,7 +131,9 @@ public class TextInput : ITextInput
 		Position = Characters.Count;
 		return true;
 	}
-	private bool DeleteBefore()
+
+	/// <inheritdoc/>
+	public bool DeleteBefore()
 	{
 		if (IsAtStart)
 			return false;
@@ -123,7 +144,9 @@ public class TextInput : ITextInput
 
 		return true;
 	}
-	private bool DeleteAfter()
+
+	/// <inheritdoc/>
+	public bool DeleteAfter()
 	{
 		if (IsAtEnd)
 			return false;
