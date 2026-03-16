@@ -68,7 +68,15 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 		string? appName = configuration[nameof(HostApplicationBuilderSettings.ApplicationName)];
 		Console.WriteLine($"Welcome to {appName ?? "Owlish"}.");
 
-		await LoopAsync(cancellationToken);
+		Console.TreatControlCAsInput = true;
+		try
+		{
+			await LoopAsync(cancellationToken);
+		}
+		finally
+		{
+			Console.TreatControlCAsInput = false;
+		}
 	}
 	private async Task LoopAsync(CancellationToken cancellationToken)
 	{
@@ -100,7 +108,18 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 					await EnsureStateAsync(cancellationToken);
 
 					if (string.IsNullOrWhiteSpace(input) is false)
-						await ExecuteAsync(input, cancellationToken);
+					{
+						// Note(Nightowl): I don't know if this is strictly necessary but I'd rather make sure since it's easy;
+						Console.TreatControlCAsInput = false;
+						try
+						{
+							await ExecuteAsync(input, cancellationToken);
+						}
+						finally
+						{
+							Console.TreatControlCAsInput = true;
+						}
+					}
 
 					needsRedraw = true;
 					break;
@@ -204,9 +223,7 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 		finally
 		{
 			if (process?.ExitCode is not 0 and not null)
-			{
 				Console.Error.WriteLine($"Processes failed with code: {process.ExitCode}");
-			}
 		}
 	}
 	#endregion
