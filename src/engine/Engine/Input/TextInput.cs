@@ -36,50 +36,6 @@ public class TextInput : ITextInput
 
 	#region Methods
 	/// <inheritdoc/>
-	public TextInputResult Handle(ConsoleKeyInfo key)
-	{
-		#region Movement
-		if (key.IsMatch(ConsoleKey.LeftArrow))
-			return MoveLeft() ? TextInputResult.CaretMoved : TextInputResult.None;
-
-		if (key.IsMatch(ConsoleKey.RightArrow))
-			return MoveRight() ? TextInputResult.CaretMoved : TextInputResult.None;
-
-		if (key.IsMatch(ConsoleKey.Home))
-			return MoveToStart() ? TextInputResult.CaretMoved : TextInputResult.None;
-
-		if (key.IsMatch(ConsoleKey.End))
-			return MoveToEnd() ? TextInputResult.CaretMoved : TextInputResult.None;
-		#endregion
-
-		#region Editing
-		if (key.IsMatch(ConsoleKey.Backspace))
-			return DeleteBefore() ? TextInputResult.TextChanged : TextInputResult.None;
-
-		if (key.IsMatch(ConsoleKey.Delete))
-			return DeleteAfter() ? TextInputResult.TextChanged : TextInputResult.None;
-		#endregion
-
-		if (key.IsMatch(ConsoleKey.Enter))
-			return TextInputResult.Complete;
-
-		if (key.IsMatch(ConsoleModifiers.Control, ConsoleKey.C))
-		{
-			if (IsEmpty)
-				return TextInputResult.Exit;
-
-			Reset();
-			return TextInputResult.TextChanged;
-		}
-
-		if (char.IsControl(key.KeyChar))
-			return TextInputResult.None;
-
-		Add(key.KeyChar);
-		return TextInputResult.TextChanged;
-	}
-
-	/// <inheritdoc/>
 	public void Reset()
 	{
 		_characters.Clear();

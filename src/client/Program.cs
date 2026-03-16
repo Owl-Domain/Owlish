@@ -56,7 +56,7 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 	#endregion
 
 	#region Properties
-	private TextInput Input { get; } = new();
+	private ConsoleTextInput ConsoleInput { get; } = new(new TextInput(), new ConsoleKeyConfiguration());
 	private Position PromptStart { get; set; }
 	#endregion
 
@@ -86,7 +86,7 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 				// This seems to work properly and it doesn't starve the prompt drawing even if
 				// I hold down a single key, I'm hoping this isn't just a thing for me though;
 				ConsoleKeyInfo key = Console.ReadKey(true);
-				TextInputResult result = Input.Handle(key);
+				TextInputResult result = ConsoleInput.Handle(key);
 
 				if (result is TextInputResult.Complete)
 				{
@@ -95,7 +95,7 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 
 					// ensure potential output starts on a new line.
 					Console.WriteLine();
-					string input = Input.ToString();
+					string input = ConsoleInput.Input.ToString();
 
 					await EnsureStateAsync(cancellationToken);
 
@@ -137,7 +137,7 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 		if (Position.GetCurrent().IsStartOfLine is false)
 			Console.WriteLine();
 
-		Input.Reset();
+		ConsoleInput.Input.Reset();
 
 		return Task.CompletedTask;
 	}
@@ -150,13 +150,13 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 			PromptStart = Position.GetCurrent();
 			Console.Write($"{DateTime.Now} > ");
 
-			for (int i = 0; i < Input.Position; i++)
-				Console.Write(Input[i]);
+			for (int i = 0; i < ConsoleInput.Input.Position; i++)
+				Console.Write(ConsoleInput.Input[i]);
 
 			Position caret = Position.GetCurrent();
 
-			for (int i = Input.Position; i < Input.Length; i++)
-				Console.Write(Input[i]);
+			for (int i = ConsoleInput.Input.Position; i < ConsoleInput.Input.Length; i++)
+				Console.Write(ConsoleInput.Input[i]);
 
 			// Note(Nightowl): VT100 code for clearing from the caret position until the end of the display;
 			Console.Write("\e[0J");

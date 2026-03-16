@@ -39,5 +39,15 @@ public static class ConsoleKeyInfoExtensions
 				info.Modifiers is ConsoleModifiers.None &&
 				info.Key == key;
 		}
+
+		/// <summary>Checks whether the key <paramref name="info"/> is equal to the given <paramref name="other"/> key info.</summary>
+		/// <param name="other">The other key info to check against.</param>
+		/// <returns><see langword="true"/> if the key and the modifiers match, <see langword="false"/> otherwise.</returns>
+		public bool IsMatch(ConsoleKeyInfo other)
+		{
+			return
+				info.Modifiers == other.Modifiers &&
+				info.Key == other.Key;
+		}
 	}
 }
