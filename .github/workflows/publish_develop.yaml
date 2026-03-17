@@ -61,7 +61,8 @@ jobs:
 
       - name: Build the project directory.
         working-directory: src/client
-        run: dotnet build --no-restore --configuration Release --runtime ${{ matrix.target-runtime }} /p:ContinuousIntegrationBuild=true
+        # Warning is suppressed for formatting because windows is being weird with it.
+        run: dotnet build --no-restore --configuration Release --runtime ${{ matrix.target-runtime }} /p:noWarn=IDE0055 /p:ContinuousIntegrationBuild=true
 
       - name: Publish the project.
         working-directory: src/client
