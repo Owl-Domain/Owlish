@@ -125,3 +125,53 @@ jobs:
 
       - name: Run the published AOT project.
         run: "${{ runner.temp }}/aot_output/AotCompatibility.TestApp"
+
+
+  publish:
+    # Ignore main and develop since they'll have separate publish workflows.
+    if: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target-runtime: linux-x64
+
+          - runner: ubuntu-24.04-arm
+            target-runtime: linux-arm64
+
+          - runner: windows-latest
+            target-runtime: windows-x64
+
+          - runner: windows-11-arm
+            target-runtime: windows-arm64
+
+          - runner: macos-latest
+            target-runtime: osx-arm64
+
+          - runner: macos-26-intel
+            target-runtime: osx-x64
+
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout the repository.
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: src
+
+      - name: Setup the .NET development environment.
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10
+
+      - name: Restore the project dependencies.
+        working-directory: src
+        run: dotnet restore --runtime ${{ matrix.target-runtime }}
+
+      - name: Build the project directory.
+        working-directory: src/client
+        run: dotnet build --no-restore --configuration Release --runtime ${{ matrix.target-runtime }} /p:ContinuousIntegrationBuild=true
+
+      - name: Publish the project.
+        working-directory: src/client
+        run: dotnet publish --no-build --configuration Release --runtime ${{ matrix.target-runtime }} --output "${{ runner.temp }}/aot_output"
