@@ -98,10 +98,10 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 
 				if (result is TextInputResult.Complete)
 				{
-					/// Ensure prompt and input is fully drawn before we get potential output.
+					// Ensure prompt and input is fully drawn before we get potential output.
 					await RedrawPromptAsync(cancellationToken);
 
-					// ensure potential output starts on a new line.
+					// Ensure potential output starts on a new line.
 					Console.WriteLine();
 					string input = ConsoleInput.Input.ToString();
 
@@ -210,7 +210,7 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 			process = Process.Start(startInfo);
 			if (process is null)
 			{
-				// Todo(Nightowl): Fail somehow?;
+				// Todo(Nightowl): Fail somehow?
 				return;
 			}
 
