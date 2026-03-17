@@ -64,9 +64,7 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 	protected override async Task ExecuteAsync(CancellationToken cancellationToken)
 	{
 		await EnsureStateAsync(cancellationToken);
-
-		string? appName = configuration[nameof(HostApplicationBuilderSettings.ApplicationName)];
-		Console.WriteLine($"Welcome to {appName ?? "Owlish"}.");
+		Console.WriteLine($"Welcome to {GetAppName()}.");
 
 		Console.TreatControlCAsInput = true;
 		try
@@ -80,70 +78,88 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 	}
 	private async Task LoopAsync(CancellationToken cancellationToken)
 	{
-		await DrawPromptAsync(cancellationToken);
 		while (cancellationToken.IsCancellationRequested is false)
 		{
-			if (await WaitForInputAsync(cancellationToken) is false)
+			string? result = await HandleSingleIterationAsync(cancellationToken);
+			if (result is null)
 				return;
 
-			bool needsRedraw = false;
+			if (result.IsWhiteSpace())
+				continue;
 
-			while (Console.KeyAvailable)
+			// Note(Nightowl):
+			// This seems to be required to make sure the app receives the SIG-INT signal,
+			// however this also seems to cancel this app as well because of the hosting lifetime;
+			Console.TreatControlCAsInput = false;
+			try
 			{
-				// Note(Nightowl):
-				// This seems to work properly and it doesn't starve the prompt drawing even if
-				// I hold down a single key, I'm hoping this isn't just a thing for me though;
-				ConsoleKeyInfo key = Console.ReadKey(true);
-				TextInputResult result = ConsoleInput.Handle(key);
+				Console.WriteLine(); // Note(Nightowl): Ensure output begins at start of line;
+				ClearUntilEnd(); // Note(Nightowl): Ensure there's no existing text after the prompt;
 
-				if (result is TextInputResult.Complete)
-				{
-					// Ensure prompt and input is fully drawn before we get potential output.
-					await RedrawPromptAsync(cancellationToken);
-
-					// Ensure potential output starts on a new line.
-					Console.WriteLine();
-					string input = ConsoleInput.Input.ToString();
-
-					await EnsureStateAsync(cancellationToken);
-
-					if (string.IsNullOrWhiteSpace(input) is false)
-					{
-						// Note(Nightowl): I don't know if this is strictly necessary but I'd rather make sure since it's easy;
-						Console.TreatControlCAsInput = false;
-						try
-						{
-							await ExecuteAsync(input, cancellationToken);
-						}
-						finally
-						{
-							Console.TreatControlCAsInput = true;
-						}
-					}
-
-					needsRedraw = true;
-					break;
-				}
-
-				if (result is TextInputResult.Exit)
-				{
-					lifetime.StopApplication();
-					return;
-				}
-
-				if (result is not TextInputResult.None)
-					needsRedraw = true;
+				await ExecuteAsync(result, cancellationToken);
 			}
-
-			if (needsRedraw)
-				await RedrawPromptAsync(cancellationToken);
+			finally
+			{
+				Console.TreatControlCAsInput = true;
+			}
 		}
 	}
 	#endregion
 
 	#region Methods
+	private async Task<string?> HandleSingleIterationAsync(CancellationToken cancellationToken)
+	{
+		await EnsureStateAsync(cancellationToken);
+		await DrawPromptAsync(cancellationToken);
+
+		List<ConsoleKeyInfo> toHandle = [];
+		while (true) // Cancellation is handled during waiting for input to keep it simpler.
+		{
+			toHandle.Clear();
+
+			if (await WaitForInputAsync(cancellationToken) is false)
+				return null; // Operation was cancelled during waiting for input.
+
+			// Note(Nightowl):
+			// Batch input keys in preparation for the future, to simplify pasting so we can handle
+			// line breaks and treat them properly without accidentally running the command too early
+			//
+			// This might have to ensure there's no refresh starving while holding down a key,
+			// but for me it worked perfectly fine;
+			while (Console.KeyAvailable)
+			{
+				ConsoleKeyInfo key = Console.ReadKey(true);
+				toHandle.Add(key);
+			}
+
+			for (int i = 0; i < toHandle.Count; i++)
+			{
+				ConsoleKeyInfo key = toHandle[i];
+				TextInputResult result = ConsoleInput.Handle(key);
+
+				if (result is TextInputResult.Exit)
+				{
+					lifetime.StopApplication();
+					return null;
+				}
+
+				if (result is TextInputResult.Complete)
+				{
+					if (i < toHandle.Count - 1)
+						continue; // Note(Nightowl): This is where we'd be handling line breaks from pasting;
+
+					return ConsoleInput.Input.ToString();
+				}
+
+				if (result is not TextInputResult.None)
+					await RedrawPromptAsync(cancellationToken);
+			}
+		}
+	}
 	private Task EnsureStateAsync(CancellationToken cancellationToken)
 	{
+		Console.Title = GetAppName();
+
 		// Note(Nightowl): Skip everything before actual input, prevents accidentally sending a command without knowing;
 		while (Console.KeyAvailable)
 		{
@@ -177,8 +193,7 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 			for (int i = ConsoleInput.Input.Position; i < ConsoleInput.Input.Length; i++)
 				Console.Write(ConsoleInput.Input[i]);
 
-			// Note(Nightowl): VT100 code for clearing from the caret position until the end of the display;
-			Console.Write("\e[0J");
+			ClearUntilEnd();
 
 			caret.Set();
 		}
@@ -214,7 +229,7 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 				return;
 			}
 
-			await process.WaitForExitAsync(cancellationToken);
+			await WaitForProcessAsync(process, cancellationToken);
 		}
 		catch (Exception exception)
 		{
@@ -226,9 +241,31 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 				Console.Error.WriteLine($"Processes failed with code: {process.ExitCode}");
 		}
 	}
+	private async Task WaitForProcessAsync(Process process, CancellationToken appToken)
+	{
+		while (process.HasExited is false)
+		{
+			if (appToken.IsCancellationRequested)
+			{
+				process.Kill();
+				return;
+			}
+
+			try
+			{
+				await process.WaitForExitAsync(appToken);
+			}
+			catch (OperationCanceledException) { /* Will hit the check at the start of the loop. */ }
+		}
+	}
 	#endregion
 
 	#region Helpers
+	private void ClearUntilEnd()
+	{
+		// Note(Nightowl): VT100 code for clearing from the caret position until the end of the display;
+		Console.Write("\e[0J");
+	}
 	private async Task RedrawPromptAsync(CancellationToken cancellationToken)
 	{
 		Console.CursorVisible = false;
@@ -253,6 +290,11 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 		}
 
 		return true;
+	}
+	private string GetAppName()
+	{
+		string? appName = configuration[nameof(HostApplicationBuilderSettings.ApplicationName)];
+		return appName ?? "Owlish";
 	}
 	#endregion
 }
