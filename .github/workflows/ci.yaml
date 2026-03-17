@@ -1,0 +1,98 @@
+name: ci
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: '**'
+    paths:
+      - 'src/**'
+      - '.editorconfig'
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repository.
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            src
+            .editorconfig
+
+      - name: Setup the .NET development environment.
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10
+
+      - name: Restore the project dependencies.
+        working-directory: src
+        run: dotnet restore
+
+      - name: Run the linter.
+        working-directory: src
+        run: dotnet format --no-restore --verify-no-changes --verbosity diagnostic
+
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release]
+
+    steps:
+      - name: Checkout the repository.
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: src
+
+      - name: Setup the .NET development environment.
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10
+
+      - name: Restore the project dependencies.
+        working-directory: src
+        run: dotnet restore
+
+      - name: Build the source directory.
+        working-directory: src
+        run: dotnet build --no-restore --warnaserror --configuration ${{ matrix.configuration }} /p:ContinuousIntegrationBuild=true
+
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug, Release]
+
+    steps:
+      - name: Checkout the repository.
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: src
+
+      - name: Setup the .NET development environment.
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10
+
+      - name: Restore the project dependencies.
+        working-directory: src
+        run: dotnet restore
+
+      - name: Build the source directory.
+        working-directory: src
+        run: dotnet build --no-restore --configuration ${{ matrix.configuration }} /p:ContinuousIntegrationBuild=true
+
+      - name: Run the tests.
+        working-directory: src
+        run: dotnet test --no-build --configuration ${{ matrix.configuration }} --warnaserror
