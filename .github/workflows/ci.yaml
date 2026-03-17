@@ -96,3 +96,32 @@ jobs:
       - name: Run the tests.
         working-directory: src
         run: dotnet test --no-build --configuration ${{ matrix.configuration }} --warnaserror
+
+
+  aot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repository.
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: src
+
+      - name: Setup the .NET development environment.
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10
+
+      - name: Restore the AOT project dependencies.
+        working-directory: src
+        run: dotnet restore --runtime linux-x64
+
+      - name: Build the AOT project directory.
+        working-directory: src/aot
+        run: dotnet build --no-restore --configuration Release --runtime linux-x64 /p:ContinuousIntegrationBuild=true
+
+      - name: Publish the AOT project.
+        working-directory: src/aot
+        run: dotnet publish --no-build --configuration Release --runtime linux-x64 --output "${{ runner.temp }}/aot_output"
+
+      - name: Run the published AOT project.
+        run: "${{ runner.temp }}/aot_output/AotCompatibility.TestApp"

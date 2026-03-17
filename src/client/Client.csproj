@@ -19,6 +19,9 @@
 
 		<IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
 		<IsTrimmable Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net6.0'))">true</IsTrimmable>
+
+		<PublishAot>true</PublishAot>
+		<IsPackable>false</IsPackable>
 	</PropertyGroup>
 
 	<!-- Project references -->
