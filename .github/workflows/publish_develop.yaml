@@ -1,0 +1,75 @@
+name: publish (develop)
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+  push:
+    branches: develop
+    paths:
+      - 'src/**'
+      - '.editorconfig'
+      - '.github/workflows/publish_develop.yaml' # React to self for easier debugging.
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
+jobs:
+  publish:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target-runtime: linux-x64
+
+          - runner: ubuntu-24.04-arm
+            target-runtime: linux-arm64
+
+          - runner: windows-latest
+            target-runtime: win-x64
+
+          - runner: windows-11-arm
+            target-runtime: win-arm64
+
+          - runner: macos-latest
+            target-runtime: osx-arm64
+
+          - runner: macos-26-intel
+            target-runtime: osx-x64
+
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout the repository.
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            src
+            .editorconfig
+
+      - name: Setup the .NET development environment.
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10
+
+      - name: Restore the project dependencies.
+        working-directory: src
+        run: dotnet restore --runtime ${{ matrix.target-runtime }}
+
+      - name: Build the project directory.
+        working-directory: src/client
+        run: dotnet build --no-restore --configuration Release --runtime ${{ matrix.target-runtime }} /p:ContinuousIntegrationBuild=true
+
+      - name: Publish the project.
+        working-directory: src/client
+        run: dotnet publish --no-build --configuration Release --runtime ${{ matrix.target-runtime }} --output "${{ runner.temp }}/aot_output/owlish (${{ matrix.target-runtime }})"
+
+      - name: Upload published artifact.
+        uses: actions/upload-artifact@v7
+        with:
+          name: "owlish (${{ matrix.target-runtime }})"
+          path: "${{ runner.temp }}/aot_output"
+          if-no-files-found: error
