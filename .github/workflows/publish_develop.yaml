@@ -65,7 +65,8 @@ jobs:
 
       - name: Publish the project.
         working-directory: src/client
-        run: dotnet publish --no-build --configuration Release --runtime ${{ matrix.target-runtime }} --output "${{ runner.temp }}/aot_output/owlish (${{ matrix.target-runtime }})"
+        # Warning is suppressed for formatting because windows is being weird with it.
+        run: dotnet publish --no-build --configuration Release --runtime ${{ matrix.target-runtime }} /p:noWarn=IDE0055 --output "${{ runner.temp }}/aot_output/owlish (${{ matrix.target-runtime }})"
 
       - name: Upload published artifact.
         uses: actions/upload-artifact@v7
