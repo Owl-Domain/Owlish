@@ -210,7 +210,7 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 			process = Process.Start(startInfo);
 			if (process is null)
 			{
-				// Todo(Nightowl): Fail somehow?;
+				// Todo(Nightowl): Fail somehow?
 				return;
 			}
 
