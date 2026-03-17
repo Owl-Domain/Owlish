@@ -142,10 +142,10 @@ jobs:
             target-runtime: linux-arm64
 
           - runner: windows-latest
-            target-runtime: windows-x64
+            target-runtime: win-x64
 
           - runner: windows-11-arm
-            target-runtime: windows-arm64
+            target-runtime: win-arm64
 
           - runner: macos-latest
             target-runtime: osx-arm64
