@@ -1,5 +1,6 @@
 using System.Text;
 using OwlDomain.Owlish.Engine.Common.Text.Parsing;
+using OwlDomain.Owlish.Engine.Common.Text.Strings;
 
 namespace OwlDomain.Owlish.Engine.Shell.Language.Syntax.Lexing;
 
@@ -8,6 +9,14 @@ namespace OwlDomain.Owlish.Engine.Shell.Language.Syntax.Lexing;
 /// </summary>
 public sealed class Lexer
 {
+	#region Nested types
+	private enum EscapeMode
+	{
+		DoubleQuote,
+		SingleQuote,
+	}
+	#endregion
+
 	#region Properties
 	private StringTextParser Text { get; }
 	private DiagnosticBag Diagnostics { get; } = [];
@@ -111,10 +120,10 @@ public sealed class Lexer
 	private SyntaxKind LexToken(out object? value)
 	{
 		if (Text.Current == '"')
-			return LexDoubleString(out value);
+			return LexString(EscapeMode.DoubleQuote, out value);
 
 		if (Text.Current == '\'')
-			return LexSingleString(out value);
+			return LexString(EscapeMode.SingleQuote, out value);
 
 		if (TryLexText(out value))
 			return SyntaxKind.TextToken;
@@ -122,71 +131,93 @@ public sealed class Lexer
 		value = Text.Consume().ToString();
 		return SyntaxKind.BadToken;
 	}
-	private SyntaxKind LexDoubleString(out object? value)
+	private SyntaxKind LexString(EscapeMode mode, out object? value)
 	{
-		Debug.Assert(Text.Current == '"');
+		char quote = mode is EscapeMode.DoubleQuote ? '"' : '\'';
+		Debug.Assert(Text.Current == quote);
 
 		TextPosition start = Text.Position;
-		Text.Advance(); // Note(Nightowl): Skip first quote;
+
+		Text.Advance();
+		List<IStringFragment> fragments = [
+			new OpeningQuoteStringFragment(quote.ToString(), new(start, Text.Position))
+		];
 
 		bool closed = false;
 		while (Text.IsAtEnd is false)
 		{
-			if (Text.Match('"'))
+			TextPosition currentPosition = Text.Position;
+			if (Text.Match(quote))
 			{
+				fragments.Add(new ClosingQuoteStringFragment(quote.ToString(), new(currentPosition, Text.Position)));
+
 				closed = true;
 				break;
 			}
 
-			if (TryMatchEscape(true, false))
+			if (TryMatchEscape(mode, out EscapeStringFragment? escapeFragment))
+			{
+				fragments.Add(escapeFragment);
 				continue;
+			}
 
-			Builder.Append(Text.Consume());
+			if (TryMatchStringText(mode, out TextStringFragment? textFragment))
+			{
+				fragments.Add(textFragment);
+				continue;
+			}
+
+			Debug.Fail("Something somehow went wrong with string parsing, there should be a valid text fragment here.");
+			Text.Advance();
 		}
 
 		if (closed is false)
-			Diagnostics.AddError(new(new(start, Text.Position)), "Strings should be closed, this is likely an error, if it's not then please escape the \" character with \\.");
+			Diagnostics.AddError(new(new(start, Text.Position)), $"Strings should be closed, this is likely an error, if it's not then please escape the {quote} character with \\.");
 
-		value = Builder.ToStringAndClear();
+		value = new StringData(fragments);
 		return SyntaxKind.StringToken;
 	}
-	private SyntaxKind LexSingleString(out object? value)
+	private bool TryMatchStringText(EscapeMode mode, [NotNullWhen(true)] out TextStringFragment? fragment)
 	{
-		Debug.Assert(Text.Current == '\'');
-
-		TextPosition start = Text.Position;
-		Text.Advance(); // Note(Nightowl): Skip first quote;
-
-		bool closed = false;
-		while (Text.IsAtEnd is false)
+		if (IsStringText(mode, Text.Current) is false)
 		{
-			if (Text.Match('\''))
-			{
-				closed = true;
-				break;
-			}
-
-			if (TryMatchEscape(false, true))
-				continue;
-
-			Builder.Append(Text.Consume());
+			fragment = default;
+			return false;
 		}
 
-		if (closed is false)
-			Diagnostics.AddError(new(new(start, Text.Position)), "Strings should be closed, this is likely an error, if it's not then please escape the \' character with \\.");
-
-		value = Builder.ToStringAndClear();
-		return SyntaxKind.StringToken;
-	}
-	private bool TryMatchEscape(bool escapeDouble, bool escapeSingle)
-	{
 		TextPosition start = Text.Position;
-		if (Text.Match('\\') is false)
+		while (Text.IsAtEnd is false && IsStringText(mode, Text.Current))
+			Builder.Append(Text.Consume());
+
+		fragment = new(Builder.ToStringAndClear(), new(start, Text.Position));
+		return true;
+	}
+	private bool IsStringText(EscapeMode mode, TextElement element)
+	{
+		if (element == '\\')
 			return false;
 
-		if (escapeDouble && Text.Match('"'))
+		if (mode is EscapeMode.DoubleQuote && Text.Current == '"')
+			return false;
+
+		if (mode is EscapeMode.SingleQuote && Text.Current == '\'')
+			return false;
+
+		return true;
+	}
+	private bool TryMatchEscape(EscapeMode mode, [NotNullWhen(true)] out EscapeStringFragment? fragment)
+	{
+		if (Text.Match('\\') is false)
+		{
+			fragment = default;
+			return false;
+		}
+
+		TextPosition start = Text.Position;
+
+		if (mode is EscapeMode.DoubleQuote && Text.Match('"'))
 			Builder.Append('"');
-		else if (escapeSingle && Text.Match('\''))
+		else if (mode is EscapeMode.SingleQuote && Text.Match('\''))
 			Builder.Append('\'');
 		else if (Text.Match('n'))
 			Builder.Append('\n');
@@ -212,6 +243,9 @@ public sealed class Lexer
 			Text.Advance();
 			Diagnostics.AddError(new(new(start, Text.Position)), $"Unknown escape sequence, if you meant to use \\ on it's own then you should escape it by prefixing it with a \\.");
 		}
+
+		TextSpan position = new(start, Text.Position);
+		fragment = new(Builder.ToStringAndClear(), position);
 
 		return true;
 	}
