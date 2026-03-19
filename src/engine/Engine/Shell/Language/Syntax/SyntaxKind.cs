@@ -25,6 +25,14 @@ public enum SyntaxKind
 	/// <summary>A trivia token that represents whitespace characters that will not be passed to the called program.</summary>
 	WhitespaceTrivia,
 	#endregion
+
+	#region Tokens
+	/// <summary>A piece of regular text.</summary>
+	TextToken,
+
+	/// <summary>A string value token enclosed in either <c>""</c> (double quotes) or <c>''</c> (single quotes).</summary>
+	StringToken,
+	#endregion
 }
 
 /// <summary>

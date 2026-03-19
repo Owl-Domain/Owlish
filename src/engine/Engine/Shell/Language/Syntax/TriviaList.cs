@@ -4,6 +4,7 @@ namespace OwlDomain.Owlish.Engine.Shell.Language.Syntax;
 /// 	Represents a list of sequential trivia nodes.
 /// </summary>
 [CollectionBuilder(typeof(TriviaList), nameof(Create))]
+[DebuggerDisplay($"{{{nameof(DebuggerDisplay)}(), nq}}")]
 public sealed class TriviaList : IReadOnlyList<TriviaNode>
 {
 	#region Fields
@@ -77,7 +78,11 @@ public sealed class TriviaList : IReadOnlyList<TriviaNode>
 
 	#region Methods
 	/// <inheritdoc/>
-	public IEnumerator<TriviaNode> GetEnumerator() => throw new NotImplementedException();
+	public IEnumerator<TriviaNode> GetEnumerator() => ((IEnumerable<TriviaNode>)_nodes).GetEnumerator(); // Note(Nightowl): Yuck;
 	IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+	#endregion
+
+	#region Helpers
+	private string DebuggerDisplay() => $"{nameof(TriviaList)} {{ Count = ({Count}), Position = ({PositionOrNull}) }}";
 	#endregion
 }

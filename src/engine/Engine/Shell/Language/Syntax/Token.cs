@@ -3,6 +3,7 @@ namespace OwlDomain.Owlish.Engine.Shell.Language.Syntax;
 /// <summary>
 /// 	Represents a token node.
 /// </summary>
+[DebuggerDisplay($"{{{nameof(DebuggerDisplay)}(), nq}}")]
 public sealed class Token : ISyntaxNode
 {
 	#region Properties
@@ -76,6 +77,13 @@ public sealed class Token : ISyntaxNode
 	#endregion
 
 	#region Helpers
+	private string DebuggerDisplay()
+	{
+		if (Value is not null)
+			return $"{Kind} {{ Position = ({Position}), Value = ({Value}) }}";
+
+		return $"{Kind} {{ Position = ({Position}) }}";
+	}
 	private TextSpan GetFullPosition()
 	{
 		TextPosition start = (LeadingTrivia.PositionOrNull ?? Position).Start;

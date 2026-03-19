@@ -3,6 +3,7 @@ namespace OwlDomain.Owlish.Engine.Shell.Language.Syntax;
 /// <summary>
 /// 	Represents a trivia node.
 /// </summary>
+[DebuggerDisplay($"{{{nameof(DebuggerDisplay)}(), nq}}")]
 public sealed class TriviaNode : ISyntaxNode
 {
 	#region Properties
@@ -32,5 +33,9 @@ public sealed class TriviaNode : ISyntaxNode
 		Position = position;
 		Value = value;
 	}
+	#endregion
+
+	#region Helpers
+	private string DebuggerDisplay() => $"{Kind} {{ Position = ({Position}), Value = ({Value}) }}";
 	#endregion
 }

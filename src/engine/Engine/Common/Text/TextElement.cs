@@ -14,6 +14,9 @@ public readonly ref struct TextElement
 
 	/// <summary>checks whether the current element represents a whitespace character.</summary>
 	public bool IsWhitespace => Span.Length is 1 && char.IsWhiteSpace(Span[0]);
+
+	/// <summary>checks whether the current element represents a control character.</summary>
+	public bool IsControl => Span.Length is 1 && char.IsControl(Span[0]);
 	#endregion
 
 	#region Constructors
@@ -143,8 +146,8 @@ public static class TextElementExtensions
 	extension(ReadOnlySpan<char> span)
 	{
 		#region Methods
-		/// <summary>Gets the next text element in the given <see langword="char"/> <paramref name="span"/>.</summary>
-		/// <returns>The next text element in the given <see langword="char"/> <paramref name="span"/>.</returns>
+		/// <summary>Gets the next text element in the given <see langword="char"/> span.</summary>
+		/// <returns>The next text element in the given <see langword="char"/> span.</returns>
 		public TextElement GetNextTextElement()
 		{
 			int length = StringInfo.GetNextTextElementLength(span);
@@ -153,9 +156,9 @@ public static class TextElementExtensions
 			return new(slice);
 		}
 
-		/// <summary>Gets the next text element in the given <see langword="char"/> <paramref name="span"/>.</summary>
+		/// <summary>Gets the next text element in the given <see langword="char"/> span.</summary>
 		/// <param name="remaining">The span of the remaining <see langword="char"/> values.</param>
-		/// <returns>The next text element in the given <see langword="char"/> <paramref name="span"/>.</returns>
+		/// <returns>The next text element in the given <see langword="char"/> span.</returns>
 		public TextElement GetNextTextElement(out ReadOnlySpan<char> remaining)
 		{
 			int length = StringInfo.GetNextTextElementLength(span);
@@ -166,8 +169,8 @@ public static class TextElementExtensions
 			return new(slice);
 		}
 
-		/// <summary>Gets the next text <paramref name="element"/> in the given <see langword="char"/> <paramref name="span"/>.</summary>
-		/// <param name="element">The next text element in the given <see langword="char"/> <paramref name="span"/>.</param>
+		/// <summary>Gets the next text <paramref name="element"/> in the given <see langword="char"/> span.</summary>
+		/// <param name="element">The next text element in the given <see langword="char"/> span.</param>
 		/// <returns>The span of the remaining <see langword="char"/> values.</returns>
 		public ReadOnlySpan<char> GetNextTextElement(out TextElement element)
 		{
@@ -184,8 +187,8 @@ public static class TextElementExtensions
 	extension(StringBuilder builder)
 	{
 		#region Methods
-		/// <summary>Appends the given text <paramref name="element"/> to the string <paramref name="builder"/>.</summary>
-		/// <param name="element">The text element to append to the <paramref name="builder"/>.</param>
+		/// <summary>Appends the given text <paramref name="element"/> to the string builder.</summary>
+		/// <param name="element">The text element to append to the builder.</param>
 		/// <returns>The used builder instance.</returns>
 		public StringBuilder Append(TextElement element) => builder.Append(element.Span);
 		#endregion

@@ -110,9 +110,132 @@ public sealed class Lexer
 	}
 	private SyntaxKind LexToken(out object? value)
 	{
-		value = default;
+		if (Text.Current == '"')
+			return LexDoubleString(out value);
 
+		if (Text.Current == '\'')
+			return LexSingleString(out value);
+
+		if (TryLexText(out value))
+			return SyntaxKind.TextToken;
+
+		value = Text.Consume().ToString();
 		return SyntaxKind.BadToken;
+	}
+	private SyntaxKind LexDoubleString(out object? value)
+	{
+		Debug.Assert(Text.Current == '"');
+
+		TextPosition start = Text.Position;
+		Text.Advance(); // Note(Nightowl): Skip first quote;
+
+		bool closed = false;
+		while (Text.IsAtEnd is false)
+		{
+			if (Text.Match('"'))
+			{
+				closed = true;
+				break;
+			}
+
+			if (TryMatchEscape(true, false))
+				continue;
+
+			Builder.Append(Text.Consume());
+		}
+
+		if (closed is false)
+			Diagnostics.AddError(new(new(start, Text.Position)), "Strings should be closed, this is likely an error, if it's not then please escape the \" character with \\.");
+
+		value = Builder.ToStringAndClear();
+		return SyntaxKind.StringToken;
+	}
+	private SyntaxKind LexSingleString(out object? value)
+	{
+		Debug.Assert(Text.Current == '\'');
+
+		TextPosition start = Text.Position;
+		Text.Advance(); // Note(Nightowl): Skip first quote;
+
+		bool closed = false;
+		while (Text.IsAtEnd is false)
+		{
+			if (Text.Match('\''))
+			{
+				closed = true;
+				break;
+			}
+
+			if (TryMatchEscape(false, true))
+				continue;
+
+			Builder.Append(Text.Consume());
+		}
+
+		if (closed is false)
+			Diagnostics.AddError(new(new(start, Text.Position)), "Strings should be closed, this is likely an error, if it's not then please escape the \' character with \\.");
+
+		value = Builder.ToStringAndClear();
+		return SyntaxKind.StringToken;
+	}
+	private bool TryMatchEscape(bool escapeDouble, bool escapeSingle)
+	{
+		TextPosition start = Text.Position;
+		if (Text.Match('\\') is false)
+			return false;
+
+		if (escapeDouble && Text.Match('"'))
+			Builder.Append('"');
+		else if (escapeSingle && Text.Match('\''))
+			Builder.Append('\'');
+		else if (Text.Match('n'))
+			Builder.Append('\n');
+		else if (Text.Match('r'))
+			Builder.Append('\r');
+		else if (Text.Match('a'))
+			Builder.Append('\a');
+		else if (Text.Match('b'))
+			Builder.Append('\b');
+		else if (Text.Match('e'))
+			Builder.Append('\e');
+		else if (Text.Match('f'))
+			Builder.Append('\f');
+		else if (Text.Match('t'))
+			Builder.Append('\t');
+		else if (Text.Match('v'))
+			Builder.Append('\v');
+		else if (Text.Match('0'))
+			Builder.Append('\0');
+		else
+		{
+			Builder.Append('\\');
+			Text.Advance();
+			Diagnostics.AddError(new(new(start, Text.Position)), $"Unknown escape sequence, if you meant to use \\ on it's own then you should escape it by prefixing it with a \\.");
+		}
+
+		return true;
+	}
+	private bool TryLexText(out object? value)
+	{
+		value = default;
+		if (IsText(Text.Current) is false)
+			return false;
+
+		while (Text.IsAtEnd is false && IsText(Text.Current))
+			Builder.Append(Text.Consume());
+
+		value = Builder.ToStringAndClear();
+		return true;
+	}
+	private bool IsText(TextElement element)
+	{
+		if (element.IsControl)
+			return false;
+
+		if (element.IsWhitespace)
+			return false;
+
+		return true;
 	}
 	#endregion
 
