@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 
 namespace OwlDomain.Owlish.Engine.Common.Text;
 
@@ -9,7 +10,10 @@ public readonly ref struct TextElement
 {
 	#region Properties
 	/// <summary>The span of characters that represents the text element.</summary>
-	public readonly ReadOnlySpan<char> Span { get; }
+	public ReadOnlySpan<char> Span { get; }
+
+	/// <summary>checks whether the current element represents a whitespace character.</summary>
+	public bool IsWhitespace => Span.Length is 1 && char.IsWhiteSpace(Span[0]);
 	#endregion
 
 	#region Constructors
@@ -174,6 +178,16 @@ public static class TextElementExtensions
 
 			return span[length..];
 		}
+		#endregion
+	}
+
+	extension(StringBuilder builder)
+	{
+		#region Methods
+		/// <summary>Appends the given text <paramref name="element"/> to the string <paramref name="builder"/>.</summary>
+		/// <param name="element">The text element to append to the <paramref name="builder"/>.</param>
+		/// <returns>The used builder instance.</returns>
+		public StringBuilder Append(TextElement element) => builder.Append(element.Span);
 		#endregion
 	}
 }
