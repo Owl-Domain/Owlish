@@ -1,4 +1,4 @@
-namespace OwlDomain.Owlish.Engine.Shell.Language;
+namespace OwlDomain.Owlish.Engine.Shell.Language.Syntax;
 
 /// <summary>
 /// 	Represents the available types of syntax nodes.
@@ -58,6 +58,33 @@ public static class SyntaxKindExtensions
 		/// <summary>Checks whether the syntax kind represents a trivia node.</summary>
 		/// <returns><see langword="true"/> if the syntax <paramref name="kind"/> represents a trivia node, <see langword="false"/> otherwise.</returns>
 		public bool IsTrivia => Trivia.Contains(kind);
+		#endregion
+	}
+
+	extension(Guard)
+	{
+		#region Functions
+		/// <summary>Asserts that the given syntax <paramref name="kind"/> represents a token node.</summary>
+		/// <param name="kind">The syntax kind to check.</param>
+		/// <param name="name">The name of the parameter that is passed in as the syntax <paramref name="kind"/> value.</param>
+		/// <exception cref="ArgumentOutOfRangeException">Thrown if the given syntax <paramref name="kind"/> does not represent a token node.</exception>
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void IsToken(SyntaxKind kind, [CallerArgumentExpression(nameof(kind))] string name = "")
+		{
+			if (kind.IsToken is false)
+				ThrowHelper.ThrowArgumentOutOfRangeException(name, kind, "Expected the given syntax kind to represent a token.");
+		}
+
+		/// <summary>Asserts that the given syntax <paramref name="kind"/> represents a trivia node.</summary>
+		/// <param name="kind">The syntax kind to check.</param>
+		/// <param name="name">The name of the parameter that is passed in as the syntax <paramref name="kind"/> value.</param>
+		/// <exception cref="ArgumentOutOfRangeException">Thrown if the given syntax <paramref name="kind"/> does not represent a trivia node.</exception>
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void IsTrivia(SyntaxKind kind, [CallerArgumentExpression(nameof(kind))] string name = "")
+		{
+			if (kind.IsTrivia is false)
+				ThrowHelper.ThrowArgumentOutOfRangeException(name, kind, "Expected the given syntax kind to represent a trivia node.");
+		}
 		#endregion
 	}
 }
