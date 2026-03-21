@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using OwlDomain.Owlish.Engine;
 using OwlDomain.Owlish.Engine.Execution;
 using OwlDomain.Owlish.Engine.Input;
 
@@ -22,6 +23,12 @@ public static class Program
 		};
 
 		HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(settings);
+
+		// Replace default console lifetime.
+		builder.Services.Remove(builder.Services.Single(descriptor => descriptor.ServiceType == typeof(IHostLifetime)));
+		builder.Services.AddSingleton<IHostLifetime, ConsoleLifetime>();
+
+		// Regular configuration
 		builder.Services.AddHostedService<OwlishWorker>();
 		builder.Services.AddSingleton<IExecutionService, ExecutionService>();
 
