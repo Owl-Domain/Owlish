@@ -134,27 +134,34 @@ public sealed class ConsoleLifetime : IHostLifetime, IDisposable
 	#region Helpers
 	private void HandlePosixSignal(PosixSignalContext context)
 	{
-		Debug.Assert(context.Signal == PosixSignal.SIGINT || context.Signal == PosixSignal.SIGQUIT || context.Signal == PosixSignal.SIGTERM);
+		Debug.Assert(context.Signal is PosixSignal.SIGINT or PosixSignal.SIGQUIT or PosixSignal.SIGTERM);
 
 		context.Cancel = true;
-		ApplicationLifetime.StopApplication();
+		// Note(Nightowl): Leaving the default implementation here just in case;
+		// ApplicationLifetime.StopApplication();
 	}
 	private void HandleWindowsShutdown(PosixSignalContext context)
 	{
-		// for SIGTERM on Windows we must block this thread until the application is finished
-		// otherwise the process will be killed immediately on return from this handler
+		context.Cancel = true;
+		return;
 
-		// don't allow Dispose to unregister handlers, since Windows has a lock that prevents the unregistration while this handler is running
-		// just leak these, since the process is exiting
-		_sigIntRegistration = null;
-		_sigQuitRegistration = null;
-		_sigTermRegistration = null;
+		// Note(Nightowl): Leaving the default implementation here just in case;
+		/*
+			// for SIGTERM on Windows we must block this thread until the application is finished
+			// otherwise the process will be killed immediately on return from this handler
 
-		ApplicationLifetime.StopApplication();
+			// don't allow Dispose to unregister handlers, since Windows has a lock that prevents the unregistration while this handler is running
+			// just leak these, since the process is exiting
+			_sigIntRegistration = null;
+			_sigQuitRegistration = null;
+			_sigTermRegistration = null;
 
-		// We could wait for a signal here, like Dispose as is done in non-netcoreapp case, but those inevitably could have user
-		// code that runs after them in the user's Main. Instead we just block this thread completely and let the main routine exit.
-		Thread.Sleep(HostOptions.ShutdownTimeout);
+			ApplicationLifetime.StopApplication();
+
+			// We could wait for a signal here, like Dispose as is done in non-netcoreapp case, but those inevitably could have user
+			// code that runs after them in the user's Main. Instead we just block this thread completely and let the main routine exit.
+			Thread.Sleep(HostOptions.ShutdownTimeout);
+		*/
 	}
 	private void RegisterShutdownHandlers()
 	{
