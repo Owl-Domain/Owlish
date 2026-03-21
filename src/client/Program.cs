@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OwlDomain.Owlish.Engine;
 using OwlDomain.Owlish.Engine.Execution;
+using OwlDomain.Owlish.Engine.History;
 using OwlDomain.Owlish.Engine.Input;
 
 namespace OwlDomain.Owlish;
@@ -29,8 +30,10 @@ public static class Program
 		builder.Services.AddSingleton<IHostLifetime, ConsoleLifetime>();
 
 		// Regular configuration
-		builder.Services.AddHostedService<OwlishWorker>();
-		builder.Services.AddSingleton<IExecutionService, ExecutionService>();
+		builder.Services
+			.AddHostedService<OwlishWorker>()
+			.AddSingleton<IExecutionService, ExecutionService>()
+			.AddSingleton<IHistoryService, HistoryService>();
 
 		IHost host = builder.Build();
 
@@ -43,7 +46,8 @@ public static class Program
 class OwlishWorker(
 	IHostApplicationLifetime lifetime,
 	IConfiguration configuration,
-	IExecutionService execution)
+	IExecutionService execution,
+	IHistoryService history)
 	: BackgroundService
 {
 	#region Nested types
@@ -67,6 +71,11 @@ class OwlishWorker(
 	}
 	#endregion
 
+	#region History fields
+	private int? _historyIndex;
+	private string? _beforeHistory;
+	#endregion
+
 	#region Properties
 	private ConsoleTextInput ConsoleInput { get; } = new(new TextInput(), new ConsoleKeyConfiguration());
 	private Position PromptStart { get; set; }
@@ -75,6 +84,9 @@ class OwlishWorker(
 	#region Lifetime methods
 	protected override async Task ExecuteAsync(CancellationToken cancellationToken)
 	{
+		ConsoleInput.RegisterKeybind(ConsoleInput.Configuration.UpHistory, UpHistoryAsync);
+		ConsoleInput.RegisterKeybind(ConsoleInput.Configuration.DownHistory, DownHistoryAsync);
+
 		await EnsureStateAsync(cancellationToken);
 		Console.WriteLine($"Welcome to {GetAppName()}.");
 
@@ -98,6 +110,14 @@ class OwlishWorker(
 
 			if (result.IsWhiteSpace())
 				continue;
+
+			if (_historyIndex is not null)
+			{
+				_historyIndex = null;
+				_beforeHistory = null;
+			}
+
+			history.Add(result);
 
 			// Note(Nightowl):
 			// This seems to be required to make sure the app receives the SIG-INT signal,
@@ -147,7 +167,7 @@ class OwlishWorker(
 			for (int i = 0; i < toHandle.Count; i++)
 			{
 				ConsoleKeyInfo key = toHandle[i];
-				TextInputResult result = ConsoleInput.Handle(key);
+				TextInputResult result = await ConsoleInput.HandleAsync(key, cancellationToken);
 
 				if (result is TextInputResult.Exit)
 				{
@@ -267,6 +287,66 @@ class OwlishWorker(
 			}
 			catch (OperationCanceledException) { /* Will hit the check at the start of the loop. */ }
 		}
+	}
+	#endregion
+
+	#region History control
+	private Task UpHistoryAsync(CancellationToken cancellationToken)
+	{
+		UpHistory();
+		return Task.CompletedTask;
+	}
+	private Task DownHistoryAsync(CancellationToken cancellationToken)
+	{
+		DownHistory();
+		return Task.CompletedTask;
+	}
+	private void UpHistory()
+	{
+		if (history.Items.Count is 0)
+			return;
+
+		if (_historyIndex is null)
+		{
+			_beforeHistory = ConsoleInput.Input.ToString();
+			_historyIndex = history.Items.Count - 1;
+			ReplaceFromHistory(_historyIndex.Value);
+		}
+		else if (_historyIndex > 0)
+		{
+			_historyIndex--;
+			ReplaceFromHistory(_historyIndex.Value);
+		}
+	}
+	private void DownHistory()
+	{
+		if (_historyIndex is null)
+			return;
+
+		_historyIndex++;
+		if (_historyIndex >= history.Items.Count)
+		{
+			_historyIndex = null;
+			Debug.Assert(_beforeHistory is not null);
+
+			ReplaceFromHistory(_beforeHistory);
+			_beforeHistory = null;
+		}
+		else
+			ReplaceFromHistory(_historyIndex.Value);
+	}
+	private void ReplaceFromHistory(int index)
+	{
+		string item = history.Items[index];
+		ReplaceFromHistory(item);
+	}
+	private void ReplaceFromHistory(string value)
+	{
+		// Note(Nightowl): Definitely need to add bulk editing support later, as well as explicit caret position setting;
+		ConsoleInput.Input.Reset();
+
+		foreach (char ch in value)
+			ConsoleInput.Input.Add(ch);
 	}
 	#endregion
 

@@ -32,6 +32,12 @@ public class ConsoleKeyConfiguration
 
 	/// <summary>The predicate used to check whether the character from a key should be added to the input.</summary>
 	public Predicate<ConsoleKeyInfo> AddCheck { get; set; } = (key) => char.IsControl(key.KeyChar) is false;
+
+	/// <summary>The key for navigating up in the history.</summary>
+	public ConsoleKeyInfo UpHistory { get; } = New(ConsoleKey.UpArrow);
+
+	/// <summary>The key for navigating down in the history.</summary>
+	public ConsoleKeyInfo DownHistory { get; } = New(ConsoleKey.DownArrow);
 	#endregion
 
 	#region Helpers

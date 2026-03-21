@@ -15,6 +15,9 @@ public enum TextInputResult
 	/// <summary>The text has been changed and needs to be re-rendered.</summary>
 	TextChanged,
 
+	/// <summary>A registered keybind has been invoked.</summary>
+	KeybindInvoked,
+
 	/// <summary>The user indicated for the application to stop.</summary>
 	Exit,
 
@@ -23,10 +26,31 @@ public enum TextInputResult
 }
 
 /// <summary>
+/// 	A delegate that represents the callback invoked from a keybind.
+/// </summary>
+/// <param name="cancellationToken">A cancellation token that can be used to cancel the operation.</param>
+/// <returns>A task that represents the asynchronous operation.</returns>
+public delegate Task KeybindCallback(CancellationToken cancellationToken = default);
+
+/// <summary>
 /// 	Represents a wrapper around <see cref="ITextInput"/> for console
 /// </summary>
 public class ConsoleTextInput
 {
+	#region Nested types
+	private sealed class KeyComparer : EqualityComparer<ConsoleKeyInfo>
+	{
+		#region Methods
+		public override bool Equals(ConsoleKeyInfo x, ConsoleKeyInfo y) => x.IsMatch(y);
+		public override int GetHashCode([DisallowNull] ConsoleKeyInfo obj) => HashCode.Combine(obj.Key, obj.Modifiers);
+		#endregion
+	}
+	#endregion
+
+	#region Fields
+	private readonly Dictionary<ConsoleKeyInfo, KeybindCallback> _keybinds = new(new KeyComparer());
+	#endregion
+
 	#region Properties
 	/// <summary>The text input that is being wrapped.</summary>
 	public ITextInput Input { get; }
@@ -49,9 +73,16 @@ public class ConsoleTextInput
 	#region Methods
 	/// <summary>Handles the given <paramref name="key"/> input.</summary>
 	/// <param name="key">The key to handle.</param>
+	/// <param name="cancellationToken">A cancellation token that can be used to cancel the operation.</param>
 	/// <returns>The result of handling the <paramref name="key"/>.</returns>
-	public TextInputResult Handle(ConsoleKeyInfo key)
+	public async Task<TextInputResult> HandleAsync(ConsoleKeyInfo key, CancellationToken cancellationToken = default)
 	{
+		if (_keybinds.TryGetValue(key, out KeybindCallback? callback))
+		{
+			await callback.Invoke(cancellationToken);
+			return TextInputResult.KeybindInvoked;
+		}
+
 		#region Movement
 		if (key.IsMatch(Configuration.MoveLeft))
 			return Input.MoveLeft() ? TextInputResult.CaretMoved : TextInputResult.None;
@@ -94,5 +125,20 @@ public class ConsoleTextInput
 
 		return TextInputResult.None;
 	}
+
+	/// <summary>Registers a <paramref name="keybind"/> that will invoke the given <paramref name="callback"/>.</summary>
+	/// <param name="keybind">The keybind to check for.</param>
+	/// <param name="callback">The callback to invoke when the keybind activates.</param>
+	/// <exception cref="ArgumentException">Thrown if the given <paramref name="keybind"/> has already been registered.</exception>
+	public void RegisterKeybind(ConsoleKeyInfo keybind, KeybindCallback callback)
+	{
+		if (_keybinds.TryAdd(keybind, callback) is false)
+			ThrowHelper.ThrowArgumentException(nameof(keybind), "The given keybind has already been registered.");
+	}
+
+	/// <summary>Unregisters the given <paramref name="keybind"/>.</summary>
+	/// <param name="keybind">The keybind to unregister.</param>
+	/// <returns><see langword="true"/> if the given <paramref name="keybind"/> was unregistered, <see langword="false"/> if there was nothing to unregister.</returns>
+	public bool UnregisterKeybind(ConsoleKeyInfo keybind) => _keybinds.Remove(keybind);
 	#endregion
 }
