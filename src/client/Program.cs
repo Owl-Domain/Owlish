@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-
+using OwlDomain.Owlish.Engine.Execution;
 using OwlDomain.Owlish.Engine.Input;
 
 namespace OwlDomain.Owlish;
@@ -23,6 +23,7 @@ public static class Program
 
 		HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(settings);
 		builder.Services.AddHostedService<OwlishWorker>();
+		builder.Services.AddSingleton<IExecutionService, ExecutionService>();
 
 		IHost host = builder.Build();
 
@@ -32,7 +33,11 @@ public static class Program
 	#endregion
 }
 
-class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configuration) : BackgroundService
+class OwlishWorker(
+	IHostApplicationLifetime lifetime,
+	IConfiguration configuration,
+	IExecutionService execution)
+	: BackgroundService
 {
 	#region Nested types
 	private readonly record struct Position(int Left, int Top)
@@ -222,18 +227,16 @@ class OwlishWorker(IHostApplicationLifetime lifetime, IConfiguration configurati
 		Process? process = null;
 		try
 		{
-			process = Process.Start(startInfo);
-			if (process is null)
-			{
-				// Todo(Nightowl): Fail somehow?
-				return;
-			}
-
+			process = execution.Execute(startInfo, true);
 			await WaitForProcessAsync(process, cancellationToken);
 		}
+#if DEBUG
+		catch (Win32Exception exception)
+#else
 		catch (Exception exception)
+#endif
 		{
-			Console.Error.WriteLine(exception.Message);
+			Console.Error.WriteLine($"Error occurred during execution: \"{exception.Message}\"");
 		}
 		finally
 		{
